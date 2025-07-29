@@ -1,111 +1,124 @@
-import { View, StyleSheet, Text } from 'react-native'
-import React, { useState } from 'react'
+import { View, StyleSheet, Text, TextInput, ScrollView } from 'react-native';
+import React, { useState } from 'react';
 import CalcButton from './CalcButton';
 import { useDarkTheme } from '../Context/ThemeProvider';
+import { WIDTH } from '../Context/Dimensions';
 
 const CalcKeyboard = () => {
 
     // { DarkTheme }
     const theme = useDarkTheme();
 
-    // { State }
-    const [firstNumber, setFirstNumber] = useState('');
-    const [secondNumber, setSecondNumber] = useState('');
-    const [operation, setOperation] = useState();
+    // State
+    const [expression, setExpression] = useState('');
     const [result, setResult] = useState(null);
+    const [caretPosition, setCaretPosition] = useState(0);
+    const [isEditable, setIsEditable] = useState(true);
 
-    const handleNumberPress = (buttonValue) => {
-        if (firstNumber.length < 10) {
-            setFirstNumber(firstNumber + buttonValue);
+    // NumberPress
+    const handleNumberPress = (value) => {
+        const beforeCaret = expression.slice(0, caretPosition);
+        const afterCaret = expression.slice(caretPosition);
+        const newExpression = beforeCaret + value + afterCaret;
+        setExpression(newExpression);
+        setCaretPosition(caretPosition + 1); // Move caret position forward by 1
+        getResult(newExpression);
+    }
+
+    // OperationPress
+    const handleOperationPress = (value) => {
+        const beforeCaret = expression.slice(0, caretPosition);
+        const afterCaret = expression.slice(caretPosition);
+        const lastChar = beforeCaret.trim().slice(-1);
+
+        if (!/[\+\-\*\/]$/.test(lastChar)) {
+            const operatorSymbol = value === '/' ? '÷' : value === '*' ? '×' : value;
+            const newExpression = beforeCaret + ' ' + operatorSymbol + ' ' + afterCaret;
+            setExpression(newExpression);
+            setCaretPosition(caretPosition + operatorSymbol.length + 2);
+            getResult(newExpression);
         }
     }
 
-    const handleOperationPress = (buttonValue) => {
-        setOperation(buttonValue);
-        setSecondNumber(firstNumber);
-        setFirstNumber('');
-    }
-
+    // Clear
     const clear = () => {
-        setFirstNumber('');
-        setSecondNumber('');
-        setOperation('');
+        setIsEditable(false);
+        setExpression('');
         setResult(null);
+        setTimeout(() => setIsEditable(true), 10);
     }
 
-    const getResult = () => {
-        switch (operation) {
-            case '+':
-                clear();
-                setResult(parseInt(secondNumber) + parseInt(firstNumber));
-                break;
-            case '-':
-                clear();
-                setResult(parseInt(secondNumber) - parseInt(firstNumber));
-                break;
-            case '*':
-                clear();
-                setResult(parseInt(secondNumber) * parseInt(firstNumber));
-                break;
-            case '/':
-                clear();
-                setResult(parseInt(secondNumber) / parseInt(firstNumber));
-                break;
-            default:
-                clear();
-                setResult(0);
-                break;
+    // getResult
+    const getResult = (exp) => {
+        try {
+            const calcExpression = exp.replace('×', '*').replace('÷', '/');
+            if (calcExpression) {
+                const evalResult = eval(calcExpression);
+                setResult(evalResult);
+            }
+        } catch (error) {
+            if (!exp.includes("=")) {
+                setResult(result);
+            }
         }
     }
 
-    const firstNumberDisplay = () => {
-        const baseStyle = [styles.screenFirstNumber, { color: theme.StationaryResult }];
-        
-        if (result !== null) {
-            return <Text style={result < 99999 ? [...baseStyle, { color: theme.result }] : [...baseStyle, { fontSize: 50, color: theme.result }]}>{result?.toString()}</Text>;
-        }
-        if (firstNumber &&  firstNumber.length < 6) {
-            return <Text style={baseStyle}>{firstNumber}</Text>;
-        }
-        if (firstNumber === '') {
-            return <Text style={baseStyle}>{'0'}</Text>;
-        }
-        if (firstNumber.length > 5 && firstNumber.length < 8) {
-            return (
-                <Text style={[...baseStyle, { fontSize: 70 }]}>
-                    {firstNumber}
-                </Text>
-            );
-        }
-        if (firstNumber.length > 7) {
-            return (
-                <Text style={[...baseStyle, { fontSize: 50 }]}>
-                    {firstNumber}
-                </Text>
-            )
-        }
+    const handleBackspace = () => {
+        const beforeCaret = expression.slice(0, caretPosition - 1); // Remove the character before caret
+        const afterCaret = expression.slice(caretPosition); // Keep the part after caret
+        const newExpression = beforeCaret + afterCaret; // Combine both parts
+        setExpression(newExpression);
+        setCaretPosition(caretPosition - 1); // Move caret position back by 1
+        getResult(newExpression);
     }
 
     return (
-        <View style={{ position: 'absolute', bottom: 50, }}>
+        <View style={{ position: 'absolute', bottom: 50 }}>
 
-            {/* Display Number */}
+            {/* DisplayResult */}
             <View style={{
-                height: 120,
+                height: '30%',
                 width: '90%',
                 justifyContent: 'flex-end',
                 alignSelf: 'center',
+                marginBottom: 2,
             }}>
-                <Text style={[styles.screenSecondNumber, { color: theme.StationaryResult}]}>
-                    {secondNumber}
-                    <Text style={{ color: theme.result, fontSize: 50, fontWeight: '200' }}>{operation}</Text>
-                </Text>
-                {firstNumberDisplay()}
+                <ScrollView
+                    horizontal={true}
+                    contentContainerStyle={{ flexGrow: 1, justifyContent: 'flex-end' }}
+                    showsHorizontalScrollIndicator={false}
+                >
+                    <TextInput
+                        style={[styles.screenSecondNumber, { color: theme.StationaryResult }]}
+                        value={expression}
+                        onChangeText={text => {
+                            setExpression(text);
+                            getResult(text);
+                        }}
+                        placeholder=''
+                        placeholderTextColor={theme.StationaryResult}
+                        keyboardType='default'
+                        multiline={true}
+                        showSoftInputOnFocus={false}
+                        editable={isEditable}
+                        onSelectionChange={(e) => setCaretPosition(e.nativeEvent.selection.start)}
+                    />
+                </ScrollView>
+
+                <ScrollView
+                    horizontal={true}
+                    contentContainerStyle={{ flexGrow: 1, justifyContent: 'flex-end' }}
+                    showsHorizontalScrollIndicator={false}
+                >
+                    <Text style={[styles.screenFirstNumber, { color: theme.result }]}>
+                        {result !== null ? result : '0'}
+                    </Text>
+                </ScrollView>
             </View>
 
             {/* Calculator KeyBaord */}
             <View style={styles.row}>
-                <CalcButton title='C' isGray onPress={clear} />
+                <CalcButton title='AC' isGray onPress={clear} />
                 <CalcButton title='+/-' isGray onPress={() => handleOperationPress('+/-')} />
                 <CalcButton title='%' isGray onPress={() => handleOperationPress('%')} />
                 <CalcButton title='÷' isGray onPress={() => handleOperationPress('/')} />
@@ -131,14 +144,14 @@ const CalcKeyboard = () => {
             <View style={styles.row}>
                 <CalcButton title='.' onPress={() => handleNumberPress('.')} />
                 <CalcButton title='0' onPress={() => handleNumberPress('0')} />
-                <CalcButton title='⌫' onPress={() => setFirstNumber(firstNumber.slice(0, -1))} />
-                <CalcButton title='=' isPrimaryColor onPress={() => getResult()} />
+                <CalcButton title='⌫' onPress={handleBackspace} /> {/* Updated backspace handler */}
+                <CalcButton title='=' isPrimaryColor onPress={() => getResult(expression)} />
             </View>
         </View>
     )
-}
+};
 
-export default CalcKeyboard
+export default CalcKeyboard;
 
 const styles = StyleSheet.create({
     row: {
@@ -148,11 +161,13 @@ const styles = StyleSheet.create({
     screenFirstNumber: {
         fontSize: 96,
         fontWeight: '200',
-        alignSelf: 'flex-end'
+        alignSelf: 'flex-end',
+        paddingRight: WIDTH * 0.03
     },
     screenSecondNumber: {
         fontSize: 40,
         fontWeight: '200',
-        alignSelf: 'flex-end'
+        alignSelf: 'flex-end',
+        paddingRight: WIDTH * 0.01
     }
-})
+});
